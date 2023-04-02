@@ -15,7 +15,8 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
         f"{TG_VER} version of this example, "
         f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
     )
-from telegram import ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, Update, ReplyKeyboardMarkup,\
+    ReplyKeyboardRemove
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -36,10 +37,11 @@ URL_KINOKINO = 'http://192.168.0.150:9200/'
 URL_USER = 'v1/user/'
 URL_START = 'v1/start/'
 URL_SEARCH_FILM = 'v1/search_film/'
+URL_ADD_MOVIE = 'v1/add_movie_api/'
 
 # START_ROUTES, END_ROUTES = range(2)
 # ONE, TWO, THREE, FOUR = range(4)
-SEARCH, SEARCHING = range(2)
+SEARCH, SEARCHING, SEARCH_SELECT = range(3)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -67,14 +69,28 @@ async def my_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
-    await update.message.reply_text("Введите название... или /skip")
+    await update.message.reply_text("Введите название... или если передумали /skip")
     return SEARCHING
 
 
 async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     params = {'name': update.message.text}
     searching_result = requests.get(f'{URL_KINOKINO}{URL_SEARCH_FILM}', params).json()
-    result_message = ''
+    context.bot_data['search_request'] = searching_result
+    result_message = 'Выберите номер фильма, который хотите добавить... или выберите skip, если не хотите добавлять\n'
+
+    reply_keyboard = []
+    line = []
+    for i in range(1, len(searching_result) + 1):
+        line.append(f'{i}')
+        if len(line) == 3:
+            reply_keyboard.append(line)
+            line = []
+    reply_keyboard.append(line)
+    reply_keyboard.append(['/skip'])
+
+    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+
     for i, movie in enumerate(searching_result):
         try:
             movie_years = movie['releaseYears']
@@ -83,15 +99,58 @@ async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 result_message += f"{i + 1}) {movie['name']} ({movie_years['start']}-{movie_years['end']})\n"
         except KeyError:
             result_message += f"{i+1}) {movie['name']} ({movie['year']})\n"
-    await update.message.reply_text(result_message)
+
+    await update.message.reply_text(result_message, reply_markup=markup)
+
+    return SEARCH_SELECT
+
+
+async def search_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+
+    user = update.message.from_user
+
+    search_result = context.bot_data['search_request']
+
+    selected = search_result[int(update.message.text) - 1]
+    logger.info(selected)
+    params = {
+        'username': user.id,
+        'id': selected['id'],
+        'type': selected['type'],
+        'name': selected['name'],
+        'year': selected['year'],
+    }
+    try:
+        if selected['poster']['previewUrl']:
+            params['preview_url'] = selected['poster']['previewUrl']
+    except KeyError:
+        params['preview_url'] = ''
+    try:
+        if selected['releaseYears']:
+            params['release_years_start'] = selected['releaseYears'][0]['start']
+            params['release_years_end'] = selected['releaseYears'][0]['end']
+    except KeyError:
+        params['release_years_start'] = ''
+        params['release_years_end'] = ''
+
+    logger.info(f'AEA1 - {params}')
+
+    response = requests.post(
+        f'{URL_KINOKINO}{URL_ADD_MOVIE}',
+        params=params,
+        timeout=20,
+    )
+
+    await update.message.reply_text(f'{response.status_code}',
+                                    reply_markup=ReplyKeyboardRemove())
+
     return ConversationHandler.END
 
 
-async def selected_searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    pass
-
-
 async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+
+    await update.message.reply_text('😢', reply_markup=ReplyKeyboardRemove())
+
     return ConversationHandler.END
 
 
@@ -102,7 +161,15 @@ def main() -> None:
         entry_points=[CommandHandler("search", search)],
         states={
 
-            SEARCHING: [MessageHandler(filters.TEXT & ~filters.COMMAND, searching), CommandHandler('skip', skip)]
+            SEARCHING: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, searching),
+                CommandHandler('skip', skip)
+            ],
+
+            SEARCH_SELECT: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, search_select),
+                CommandHandler('skip', skip)
+            ],
 
         },
         fallbacks=[CommandHandler("skip", skip)],
@@ -119,3 +186,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# kinokino_tg_bot.py
