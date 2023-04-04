@@ -40,9 +40,7 @@ URL_SEARCH_FILM = 'v1/search_film/'
 URL_ADD_MOVIE = 'v1/add_movie_api/'
 
 # Stages
-SEARCH, SEARCHING, SEARCH_SELECT = range(3)
-# Callback data
-ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE = range(9)
+SEARCHING, SEARCHING_SELECT = range(2)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -74,28 +72,12 @@ async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    params = {'name': update.message.text}
+    search_text = update.message.text
+    params = {'name': search_text}
     searching_result = requests.get(f'{URL_KINOKINO}{URL_SEARCH_FILM}', params).json()
-    context.bot_data['search_request'] = searching_result
-    result_message = 'Выберите номер фильма, который хотите добавить... или выберите skip, если не хотите добавлять\n'
+    result_message = 'Выберит фильм, который хотите добавить...\n'
 
     reply_keyboard = []
-    # for i in range(1, len(searching_result) + 1):
-    #     reply_keyboard.append([InlineKeyboardButton(f'{}')])
-    # reply_keyboard.append(line)
-    # reply_keyboard.append(['/skip'])
-    # keyboard = [
-    #     [
-    #         InlineKeyboardButton("2", callback_data=str(search_select)),
-    #         ],
-    #     [
-    #         InlineKeyboardButton("3", callback_data=str(THREE)),
-    #     ]
-    # ]
-    # reply_keyboard = keyboard
-
-    # markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
-    markup = InlineKeyboardMarkup(reply_keyboard)
 
     for i, movie in enumerate(searching_result):
         try:
@@ -105,8 +87,8 @@ async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 reply_keyboard.append(
                     [
                         InlineKeyboardButton(
-                            f"{i + 1}) {movie['name']} ({movie_years['start']}-{movie_years['end']})",
-                            callback_data=str(ONE)
+                            f"{movie['name']} ({movie_years['start']}-{movie_years['end']})",
+                            callback_data=f'{search_text}__{i}'
                         )
                     ]
                 )
@@ -114,64 +96,38 @@ async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
             reply_keyboard.append(
                 [
                     InlineKeyboardButton(
-                        f"{i+1}) {movie['name']} ({movie['year']})",
-                        callback_data=str(ONE))
+                        f"{movie['name']} ({movie['year']})",
+                        callback_data=f'{search_text}__{i}'
+                    )
                 ]
             )
     markup = InlineKeyboardMarkup(reply_keyboard)
 
     await update.message.reply_text(result_message, reply_markup=markup)
 
-    return SEARCH_SELECT
-
-
-async def search_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-
-    user = update.message.from_user
-
-    search_result = context.bot_data['search_request']
-
-    selected = search_result[int(update.message.text) - 1]
-    logger.info(selected)
-    params = {
-        'username': user.id,
-        'id': selected['id'],
-        'type': selected['type'],
-        'name': selected['name'],
-        'year': selected['year'],
-    }
-    try:
-        if selected['poster']['previewUrl']:
-            params['preview_url'] = selected['poster']['previewUrl']
-    except KeyError:
-        params['preview_url'] = ''
-    try:
-        if selected['releaseYears']:
-            params['release_years_start'] = selected['releaseYears'][0]['start']
-            params['release_years_end'] = selected['releaseYears'][0]['end']
-    except KeyError:
-        params['release_years_start'] = ''
-        params['release_years_end'] = ''
-
-    logger.info(f'AEA1 - {params}')
-
-    response = requests.post(
-        f'{URL_KINOKINO}{URL_ADD_MOVIE}',
-        params=params,
-        timeout=20,
-    )
-
-    await update.message.reply_text(f'{response.status_code}',
-                                    reply_markup=ReplyKeyboardRemove())
-
     return ConversationHandler.END
 
 
-async def test_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def searching_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
-    await query.message.reply_text('hello?')
+    searching_text = query.data
+    searching_text_split = searching_text.split('__')
+    found_name = searching_text_split[0]
+    found_id = searching_text_split[1]
+    params = {
+        'number': found_id,
+        'name': found_name,
+        'username': query.from_user.id,
+    }
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_ADD_MOVIE}",
+        params=params
+    )
     await query.answer()
-    await query.message.reply_text(f"{context.bot_data['search_request']}")
+    if response.status_code == 200:
+        await query.message.reply_text(f"Есть в списках")
+    if response.status_code == 201:
+        await query.message.reply_text(f"Добавлено")
     return ConversationHandler.END
 
 
@@ -179,6 +135,11 @@ async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     await update.message.reply_text('😢', reply_markup=ReplyKeyboardRemove())
 
+    return ConversationHandler.END
+
+
+async def new_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text(f'xdxd__{update.message.text}')
     return ConversationHandler.END
 
 
@@ -191,19 +152,18 @@ def main() -> None:
 
             SEARCHING: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, searching),
-                CommandHandler('skip', skip)
+                CommandHandler('skip', skip),
             ],
 
-            SEARCH_SELECT: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, search_select),
-                CommandHandler('skip', skip),
-                # CallbackQueryHandler(searching, pattern="^" + str(ONE)),
-                CallbackQueryHandler(test_func, pattern="^" + str(ONE)),
-            ],
+            SEARCHING_SELECT: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, searching_select),
+            ]
 
         },
         fallbacks=[CommandHandler("skip", skip)],
     )
+
+    application.add_handler(CallbackQueryHandler(searching_select))
 
     application.add_handler(conv_handler)
 
