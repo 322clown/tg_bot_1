@@ -39,9 +39,10 @@ URL_START = 'v1/start/'
 URL_SEARCH_FILM = 'v1/search_film/'
 URL_ADD_MOVIE = 'v1/add_movie_api/'
 
-# START_ROUTES, END_ROUTES = range(2)
-# ONE, TWO, THREE, FOUR = range(4)
+# Stages
 SEARCH, SEARCHING, SEARCH_SELECT = range(3)
+# Callback data
+ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE = range(9)
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -68,7 +69,6 @@ async def my_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user = update.effective_user
     await update.message.reply_text("Введите название... или если передумали /skip")
     return SEARCHING
 
@@ -80,25 +80,45 @@ async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     result_message = 'Выберите номер фильма, который хотите добавить... или выберите skip, если не хотите добавлять\n'
 
     reply_keyboard = []
-    line = []
-    for i in range(1, len(searching_result) + 1):
-        line.append(f'{i}')
-        if len(line) == 3:
-            reply_keyboard.append(line)
-            line = []
-    reply_keyboard.append(line)
-    reply_keyboard.append(['/skip'])
+    # for i in range(1, len(searching_result) + 1):
+    #     reply_keyboard.append([InlineKeyboardButton(f'{}')])
+    # reply_keyboard.append(line)
+    # reply_keyboard.append(['/skip'])
+    # keyboard = [
+    #     [
+    #         InlineKeyboardButton("2", callback_data=str(search_select)),
+    #         ],
+    #     [
+    #         InlineKeyboardButton("3", callback_data=str(THREE)),
+    #     ]
+    # ]
+    # reply_keyboard = keyboard
 
-    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    # markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    markup = InlineKeyboardMarkup(reply_keyboard)
 
     for i, movie in enumerate(searching_result):
         try:
             movie_years = movie['releaseYears']
             if movie_years:
                 movie_years = movie_years[0]
-                result_message += f"{i + 1}) {movie['name']} ({movie_years['start']}-{movie_years['end']})\n"
+                reply_keyboard.append(
+                    [
+                        InlineKeyboardButton(
+                            f"{i + 1}) {movie['name']} ({movie_years['start']}-{movie_years['end']})",
+                            callback_data=str(ONE)
+                        )
+                    ]
+                )
         except KeyError:
-            result_message += f"{i+1}) {movie['name']} ({movie['year']})\n"
+            reply_keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        f"{i+1}) {movie['name']} ({movie['year']})",
+                        callback_data=str(ONE))
+                ]
+            )
+    markup = InlineKeyboardMarkup(reply_keyboard)
 
     await update.message.reply_text(result_message, reply_markup=markup)
 
@@ -147,6 +167,14 @@ async def search_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return ConversationHandler.END
 
 
+async def test_func(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.message.reply_text('hello?')
+    await query.answer()
+    await query.message.reply_text(f"{context.bot_data['search_request']}")
+    return ConversationHandler.END
+
+
 async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     await update.message.reply_text('😢', reply_markup=ReplyKeyboardRemove())
@@ -168,7 +196,9 @@ def main() -> None:
 
             SEARCH_SELECT: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, search_select),
-                CommandHandler('skip', skip)
+                CommandHandler('skip', skip),
+                # CallbackQueryHandler(searching, pattern="^" + str(ONE)),
+                CallbackQueryHandler(test_func, pattern="^" + str(ONE)),
             ],
 
         },
@@ -187,4 +217,4 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
-# kinokino_tg_bot.py
+# python kinokino_tg_bot.py
