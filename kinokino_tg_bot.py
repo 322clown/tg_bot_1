@@ -39,13 +39,19 @@ URL_START = 'v1/start/'
 URL_SEARCH_FILM = 'v1/search_film/'
 URL_ADD_MOVIE = 'v1/add_movie_api/'
 URL_PROFILE_STAT = 'v1/profile_statistics/'
+URL_MOVIES = 'v1/user_movies/'
 
 # Stages
-SEARCHING, SEARCHING_SELECT = range(2)
-#Second_stages
+SEARCHING, TWO = range(2)
+
+# Second_stages
+
 PLANNED_MOVIES, COMPLETED_MOVIES, WATCHING_MOVIES, ALL_MOVIES = range(4)
 MOVIES, MOVIES_SECOND = range(2)
 
+PLANNED_TO_WATCH = 'Запланировано'
+WATCHING = 'Смотрю'
+COMPLETED = 'Просмотрено'
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
@@ -164,10 +170,12 @@ async def my_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
 
     keyboard = [
-        [InlineKeyboardButton('Все', callback_data=str(ALL_MOVIES))],
-        [InlineKeyboardButton('Запланировано', callback_data=str(PLANNED_MOVIES))],
-        [InlineKeyboardButton('Смотрю', callback_data=str(WATCHING_MOVIES))],
-        [InlineKeyboardButton('Просмотрено', callback_data=str(COMPLETED_MOVIES))],
+        [
+            InlineKeyboardButton('Все', callback_data=str(ALL_MOVIES)),
+            InlineKeyboardButton('Запланировано', callback_data=str(PLANNED_MOVIES)),
+            InlineKeyboardButton('Смотрю', callback_data=str(WATCHING_MOVIES)),
+            InlineKeyboardButton('Просмотрено', callback_data=str(COMPLETED_MOVIES)),
+        ]
     ]
 
     markup = InlineKeyboardMarkup(keyboard)
@@ -178,23 +186,113 @@ async def my_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    pass
+    return ConversationHandler.END
+
+
+def util_movie(response: dict):
+    result_message = ''
+    for i, film_info in enumerate(response['films']):
+        film_name = film_info['name']
+        film_year = film_info['year']
+        film_year_start = film_info['year_start']
+        film_year_end = film_info['year_end']
+        if film_year_start:
+            result_message += f'{i+1}){film_name} ({film_year_start}-{film_year_end})\n'
+        else:
+            result_message += f'{i+1}){film_name} ({film_year})\n'
+    return result_message
 
 
 async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    pass
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [
+            InlineKeyboardButton('Все', callback_data=str(ALL_MOVIES)),
+            InlineKeyboardButton('Смотрю', callback_data=str(WATCHING_MOVIES)),
+            InlineKeyboardButton('Просмотрено', callback_data=str(COMPLETED_MOVIES)),
+        ]
+    ]
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_MOVIES}",
+        params={
+            'username': query.from_user.id,
+            'field_name': PLANNED_TO_WATCH,
+        },
+    ).json()
+    result_message = util_movie(response)
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(f'В планах:\n{result_message}', reply_markup=markup)
+    return MOVIES
 
 
 async def watching_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    pass
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [
+            InlineKeyboardButton('Все', callback_data=str(ALL_MOVIES)),
+            InlineKeyboardButton('Запланировано', callback_data=str(PLANNED_MOVIES)),
+            InlineKeyboardButton('Просмотрено', callback_data=str(COMPLETED_MOVIES)),
+        ]
+    ]
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_MOVIES}",
+        params={
+            'username': query.from_user.id,
+            'field_name': WATCHING,
+        },
+    ).json()
+    result_message = util_movie(response)
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(f'Смотрю:\n{result_message}', reply_markup=markup)
+    return MOVIES
 
 
 async def completed_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    pass
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [
+            InlineKeyboardButton('Все', callback_data=str(ALL_MOVIES)),
+            InlineKeyboardButton('Запланировано', callback_data=str(PLANNED_MOVIES)),
+            InlineKeyboardButton('Смотрю', callback_data=str(WATCHING_MOVIES)),
+        ]
+    ]
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_MOVIES}",
+        params={
+            'username': query.from_user.id,
+            'field_name': COMPLETED,
+        },
+    ).json()
+    result_message = util_movie(response)
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(f'Просмотренные:\n{result_message}', reply_markup=markup)
+    return MOVIES
 
 
 async def all_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    pass
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [
+            InlineKeyboardButton('Запланировано', callback_data=str(PLANNED_MOVIES)),
+            InlineKeyboardButton('Смотрю', callback_data=str(WATCHING_MOVIES)),
+            InlineKeyboardButton('Просмотрено', callback_data=str(COMPLETED_MOVIES)),
+        ]
+    ]
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_MOVIES}",
+        params={
+            'username': query.from_user.id,
+            'field_name': 'None',
+        },
+    ).json()
+    result_message = util_movie(response)
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(f'Все:\n{result_message}', reply_markup=markup)
+    return MOVIES
 
 
 def main() -> None:
@@ -209,16 +307,12 @@ def main() -> None:
                 CommandHandler('skip', skip),
             ],
 
-            SEARCHING_SELECT: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, searching_select),
-            ]
-
         },
         fallbacks=[CommandHandler("skip", skip)],
     )
 
     second_conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("my_movies ", my_movies)],
+        entry_points=[CommandHandler("my_movies", my_movies)],
         states={
 
             MOVIES: [
@@ -229,15 +323,18 @@ def main() -> None:
             ],
 
         },
-        fallbacks=[CommandHandler('done', done)],
+        fallbacks=[
+            CommandHandler("my_movies", my_movies),
+            CommandHandler('done', done)
+        ],
 
     )
-
-    application.add_handler(CallbackQueryHandler(searching_select))
 
     application.add_handler(conv_handler)
 
     application.add_handler(second_conv_handler)
+
+    application.add_handler(CallbackQueryHandler(searching_select))
 
     application.add_handler(CommandHandler('my_id', my_id))
 
