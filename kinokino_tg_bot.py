@@ -94,7 +94,7 @@ async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                     [
                         InlineKeyboardButton(
                             f"{movie['name']} ({movie_years['start']}-{movie_years['end']})",
-                            callback_data=f'{search_text}__{i}'
+                            callback_data=f'search__{search_text}__{i}'
                         )
                     ]
                 )
@@ -103,7 +103,7 @@ async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 [
                     InlineKeyboardButton(
                         f"{movie['name']} ({movie['year']})",
-                        callback_data=f'{search_text}__{i}'
+                        callback_data=f'search__{search_text}__{i}'
                     )
                 ]
             )
@@ -117,24 +117,24 @@ async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def searching_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     searching_text = query.data
-    searching_text_split = searching_text.split('__')
-    found_name = searching_text_split[0]
-    found_id = searching_text_split[1]
-    params = {
-        'number': found_id,
-        'name': found_name,
-        'username': query.from_user.id,
-    }
-    response = requests.post(
-        url=f"{URL_KINOKINO}{URL_ADD_MOVIE}",
-        params=params
-    )
-    await query.answer()
-    if response.status_code == 200:
-        await query.message.reply_text(f"Есть в списках")
-    if response.status_code == 201:
-        await query.message.reply_text(f"Добавлено")
-    return ConversationHandler.END
+    if searching_text.startswith('search__'):
+        searching_text_split = searching_text.split('__')
+        found_name = searching_text_split[1]
+        found_id = searching_text_split[2]
+        params = {
+            'number': found_id,
+            'name': found_name,
+            'username': query.from_user.id,
+        }
+        response = requests.post(
+            url=f"{URL_KINOKINO}{URL_ADD_MOVIE}",
+            params=params
+        )
+        await query.answer()
+        if response.status_code == 200:
+            await query.message.reply_text(f"Есть в списках")
+        if response.status_code == 201:
+            await query.message.reply_text(f"Добавлено")
 
 
 async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
