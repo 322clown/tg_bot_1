@@ -309,7 +309,7 @@ async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
 def main() -> None:
     application = Application.builder().token("5454514886:AAFL06SwdfSCkv_afMBIvT576G-sEE5_cvY").build()
 
-    conv_handler = ConversationHandler(
+    search_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("search", search)],
         states={
 
@@ -322,7 +322,7 @@ def main() -> None:
         fallbacks=[CommandHandler("skip", skip)],
     )
 
-    second_conv_handler = ConversationHandler(
+    movies_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("my_movies", my_movies)],
         states={
 
@@ -341,9 +341,9 @@ def main() -> None:
 
     )
 
-    application.add_handler(conv_handler)
+    application.add_handler(search_conv_handler)
 
-    application.add_handler(second_conv_handler)
+    application.add_handler(movies_conv_handler)
 
     application.add_handler(CallbackQueryHandler(searching_select))
 
