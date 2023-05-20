@@ -38,10 +38,18 @@ URL_USER = 'v1/user/'
 URL_START = 'v1/start/'
 URL_SEARCH_FILM = 'v1/search_film/'
 URL_ADD_MOVIE = 'v1/add_movie_api/'
+URL_PROFILE_STAT = 'v1/profile_statistics/'
+URL_MOVIES = 'v1/user_movies/'
+URL_INFO_MOVIES = 'v1/movie_info/'
 
-# START_ROUTES, END_ROUTES = range(2)
-# ONE, TWO, THREE, FOUR = range(4)
-SEARCH, SEARCHING, SEARCH_SELECT = range(3)
+
+SEARCHING = range(1)
+MOVIES = range(1)
+
+
+PLANNED_TO_WATCH = 'Запланировано'
+WATCHING = 'Смотрю'
+COMPLETED = 'Просмотрено'
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -62,89 +70,69 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text('Можно начинать (^˵◕ω◕˵^)')
 
 
-async def my_id(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.effective_user
-    await update.message.reply_text(f'{user.id}')
-
-
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user = update.effective_user
     await update.message.reply_text("Введите название... или если передумали /skip")
     return SEARCHING
 
 
 async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    params = {'name': update.message.text}
+    search_text = update.message.text
+    params = {'name': search_text}
     searching_result = requests.get(f'{URL_KINOKINO}{URL_SEARCH_FILM}', params).json()
-    context.bot_data['search_request'] = searching_result
-    result_message = 'Выберите номер фильма, который хотите добавить... или выберите skip, если не хотите добавлять\n'
+    result_message = 'Выберит фильм, который хотите добавить...\n'
 
     reply_keyboard = []
-    line = []
-    for i in range(1, len(searching_result) + 1):
-        line.append(f'{i}')
-        if len(line) == 3:
-            reply_keyboard.append(line)
-            line = []
-    reply_keyboard.append(line)
-    reply_keyboard.append(['/skip'])
-
-    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
 
     for i, movie in enumerate(searching_result):
         try:
             movie_years = movie['releaseYears']
             if movie_years:
                 movie_years = movie_years[0]
-                result_message += f"{i + 1}) {movie['name']} ({movie_years['start']}-{movie_years['end']})\n"
+                reply_keyboard.append(
+                    [
+                        InlineKeyboardButton(
+                            f"{movie['name']} ({movie_years['start']}-{movie_years['end']})",
+                            callback_data=f'search__{search_text}__{i}'
+                        )
+                    ]
+                )
         except KeyError:
-            result_message += f"{i+1}) {movie['name']} ({movie['year']})\n"
+            reply_keyboard.append(
+                [
+                    InlineKeyboardButton(
+                        f"{movie['name']} ({movie['year']})",
+                        callback_data=f'search__{search_text}__{i}'
+                    )
+                ]
+            )
+    markup = InlineKeyboardMarkup(reply_keyboard)
 
     await update.message.reply_text(result_message, reply_markup=markup)
 
-    return SEARCH_SELECT
-
-
-async def search_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-
-    user = update.message.from_user
-
-    search_result = context.bot_data['search_request']
-
-    selected = search_result[int(update.message.text) - 1]
-    logger.info(selected)
-    params = {
-        'username': user.id,
-        'id': selected['id'],
-        'type': selected['type'],
-        'name': selected['name'],
-        'year': selected['year'],
-    }
-    try:
-        if selected['poster']['previewUrl']:
-            params['preview_url'] = selected['poster']['previewUrl']
-    except KeyError:
-        params['preview_url'] = ''
-    try:
-        if selected['releaseYears']:
-            params['release_years_start'] = selected['releaseYears'][0]['start']
-            params['release_years_end'] = selected['releaseYears'][0]['end']
-    except KeyError:
-        params['release_years_start'] = ''
-        params['release_years_end'] = ''
-
-    logger.info(f'AEA1 - {params}')
-
-    response = requests.post(
-        f'{URL_KINOKINO}{URL_ADD_MOVIE}',
-        params=params,
-        timeout=20,
-    )
-
-    await update.message.reply_text(f'{response.status_code}',
-                                    reply_markup=ReplyKeyboardRemove())
-
     return ConversationHandler.END
+
+
+async def searching_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    searching_text = query.data
+    if searching_text.startswith('search__'):
+        searching_text_split = searching_text.split('__')
+        found_name = searching_text_split[1]
+        found_id = searching_text_split[2]
+        params = {
+            'number': found_id,
+            'name': found_name,
+            'username': query.from_user.id,
+        }
+        response = requests.post(
+            url=f"{URL_KINOKINO}{URL_ADD_MOVIE}",
+            params=params
+        )
+        await query.answer()
+        if response.status_code == 200:
+            await query.message.reply_text(f"Есть в списках")
+        if response.status_code == 201:
+            await query.message.reply_text(f"Добавлено")
 
 
 async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -154,32 +142,232 @@ async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
+async def statistics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_PROFILE_STAT}",
+        params={'username': user.id}
+    )
+    if response.status_code == 200:
+        response_json = response.json()
+        result_message = f"Статистика.\n" \
+                         f"Всего: {response_json['all_count']}\n" \
+                         f"Запланировано: {response_json['planned_count']}\n" \
+                         f"Смотрю: {response_json['watching_count']}\n" \
+                         f"Просмотрено: {response_json['completed_count']}\n"
+        await update.message.reply_text(result_message)
+    else:
+        await update.message.reply_text('error')
+
+
+async def my_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user = update.effective_user
+
+    keyboard = [
+        [
+            InlineKeyboardButton('Все', callback_data="all__"),
+            InlineKeyboardButton('Запланировано', callback_data="planned__"),
+            InlineKeyboardButton('Смотрю', callback_data="watching__"),
+            InlineKeyboardButton('Просмотрено', callback_data="completed__"),
+        ]
+    ]
+
+    markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text('Выберите:',
+                                    reply_markup=markup)
+
+    return MOVIES
+
+
+async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    return MOVIES
+
+
+def util_movie(response: dict):
+    result_message = ''
+    for i, film_info in enumerate(response['films']):
+        film_name = film_info['name']
+        film_year = film_info['year']
+        film_year_start = film_info['year_start']
+        film_year_end = film_info['year_end']
+        if film_year_start:
+            result_message += f'{i+1}){film_name} ({film_year_start}-{film_year_end})\n'
+        else:
+            result_message += f'{i+1}){film_name} ({film_year})\n'
+    return result_message
+
+
+async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [
+            InlineKeyboardButton('Все', callback_data="all__"),
+            InlineKeyboardButton('Смотрю', callback_data="watching__"),
+            InlineKeyboardButton('Просмотрено', callback_data="completed__"),
+        ]
+    ]
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_MOVIES}",
+        params={
+            'username': query.from_user.id,
+            'field_name': PLANNED_TO_WATCH,
+        },
+    ).json()
+    result_message = util_movie(response)
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(f'В планах:\n{result_message}', reply_markup=markup)
+    return MOVIES
+
+
+async def watching_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [
+            InlineKeyboardButton('Все', callback_data="all__"),
+            InlineKeyboardButton('Запланировано', callback_data="planned__"),
+            InlineKeyboardButton('Просмотрено', callback_data="completed__"),
+        ]
+    ]
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_MOVIES}",
+        params={
+            'username': query.from_user.id,
+            'field_name': WATCHING,
+        },
+    ).json()
+    result_message = util_movie(response)
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(f'Смотрю:\n{result_message}', reply_markup=markup)
+    return MOVIES
+
+
+async def completed_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [
+            InlineKeyboardButton('Все', callback_data="all__"),
+            InlineKeyboardButton('Запланировано', callback_data="planned__"),
+            InlineKeyboardButton('Смотрю', callback_data="watching__"),
+        ]
+    ]
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_MOVIES}",
+        params={
+            'username': query.from_user.id,
+            'field_name': COMPLETED,
+        },
+    ).json()
+    result_message = util_movie(response)
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(f'Просмотренные:\n{result_message}', reply_markup=markup)
+    return MOVIES
+
+
+async def all_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    query = update.callback_query
+    await query.answer()
+    keyboard = []
+    buttons = [
+            InlineKeyboardButton('Запланировано', callback_data="planned__"),
+            InlineKeyboardButton('Смотрю', callback_data="watching__"),
+            InlineKeyboardButton('Просмотрено', callback_data="completed__"),
+        ]
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_MOVIES}",
+        params={
+            'username': query.from_user.id,
+            'field_name': 'None',
+        },
+    ).json()
+    for i, movie in enumerate(response['films']):
+        callback_data = f"info__{movie['id']}"
+        keyboard.append([InlineKeyboardButton(f"{i}) {movie['name']}", callback_data=callback_data)])
+    keyboard.append(buttons)
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(f'Все:\n', reply_markup=markup)
+    return MOVIES
+
+
+async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    query = update.callback_query
+    data_split = query.data.split('__')
+    movie_id = data_split[1]
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_INFO_MOVIES}",
+        params={
+            'username': f'{query.from_user.id}',
+            'movie_id': f'{movie_id}',
+        },
+    ).json()
+    buttons = [
+        InlineKeyboardButton('Все', callback_data="all__"),
+        InlineKeyboardButton('Запланировано', callback_data="planned__"),
+        InlineKeyboardButton('Смотрю', callback_data="watching__"),
+        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
+    ]
+    keyboard = [buttons]
+    if response['favorite']:
+        keyboard.append([InlineKeyboardButton('Удалить из избранного', callback_data="completed__")])
+    else:
+        keyboard.append([InlineKeyboardButton('Добавить в избранное', callback_data="completed__")])
+    markup = InlineKeyboardMarkup(keyboard)
+    result_message = f"Название: {response['name']}\n" \
+                     f"Год: {response['year']}\n" \
+                     f"Сезонов: {response['seasons_count']}\n" \
+                     f"Серий: {response['episodes_count']}\n" \
+                     f"Превью: {response['preview_url']}\n"
+    await query.answer()
+    await query.edit_message_text(result_message, reply_markup=markup)
+    return MOVIES
+
+
 def main() -> None:
     application = Application.builder().token("5454514886:AAFL06SwdfSCkv_afMBIvT576G-sEE5_cvY").build()
 
-    conv_handler = ConversationHandler(
+    search_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("search", search)],
         states={
 
             SEARCHING: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, searching),
-                CommandHandler('skip', skip)
-            ],
-
-            SEARCH_SELECT: [
-                MessageHandler(filters.TEXT & ~filters.COMMAND, search_select),
-                CommandHandler('skip', skip)
+                CommandHandler('skip', skip),
             ],
 
         },
         fallbacks=[CommandHandler("skip", skip)],
     )
 
-    application.add_handler(conv_handler)
+    movies_conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("my_movies", my_movies)],
+        states={
 
-    application.add_handler(CommandHandler('my_id', my_id))
+            MOVIES: [
+                CallbackQueryHandler(all_movies, pattern="^all__$"),
+                CallbackQueryHandler(planned_movies, pattern="^planned__$"),
+                CallbackQueryHandler(watching_movies, pattern="^watching__$"),
+                CallbackQueryHandler(completed_movies, pattern="^completed__$"),
+                CallbackQueryHandler(movie_info, pattern="^info__"),
+            ],
+
+        },
+        fallbacks=[
+            CommandHandler("my_movies", my_movies),
+        ],
+
+    )
+
+    application.add_handler(search_conv_handler)
+
+    application.add_handler(movies_conv_handler)
+
+    application.add_handler(CallbackQueryHandler(searching_select))
 
     application.add_handler(CommandHandler('start', start))
+
+    application.add_handler(CommandHandler('statistics', statistics))
 
     application.run_polling()
 
@@ -187,4 +375,4 @@ def main() -> None:
 if __name__ == "__main__":
     main()
 
-# kinokino_tg_bot.py
+# python kinokino_tg_bot.py
