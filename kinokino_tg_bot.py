@@ -309,8 +309,16 @@ async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         InlineKeyboardButton('Просмотрено', callback_data="completed__"),
     ]
     keyboard = [buttons]
+    if response['favorite']:
+        keyboard.append([InlineKeyboardButton('Удалить из избранного', callback_data="completed__")])
+    else:
+        keyboard.append([InlineKeyboardButton('Добавить в избранное', callback_data="completed__")])
     markup = InlineKeyboardMarkup(keyboard)
-    result_message = ''
+    result_message = f"Название: {response['name']}\n" \
+                     f"Год: {response['year']}\n" \
+                     f"Сезонов: {response['seasons_count']}\n" \
+                     f"Серий: {response['episodes_count']}\n" \
+                     f"Превью: {response['preview_url']}\n"
     await query.answer()
     await query.edit_message_text(result_message, reply_markup=markup)
     return MOVIES
