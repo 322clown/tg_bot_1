@@ -41,6 +41,7 @@ URL_ADD_MOVIE = 'v1/add_movie_api/'
 URL_PROFILE_STAT = 'v1/profile_statistics/'
 URL_MOVIES = 'v1/user_movies/'
 URL_INFO_MOVIES = 'v1/movie_info/'
+URL_FAVORITE = 'v1/add_favorite/'
 
 
 SEARCHING = range(1)
@@ -326,6 +327,18 @@ async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     query = update.callback_query
     data_split = query.data.split('__')
     movie_id = data_split[1]
+    if data_split[0] == 'add':
+        fav = data_split[2]
+        logger.info(f"{fav}__{movie_id}")
+        response_fav = requests.post(
+            url=f"{URL_KINOKINO}{URL_FAVORITE}",
+            params={
+                'username': f'{query.from_user.id}',
+                'movie_id': f'{movie_id}',
+                'fav': f'{fav}',
+            },
+        ).text[1:-1]
+        await query.message.reply_text(response_fav)
     response = requests.post(
         url=f"{URL_KINOKINO}{URL_INFO_MOVIES}",
         params={
@@ -341,9 +354,9 @@ async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     ]
     keyboard = [buttons]
     if response['favorite']:
-        keyboard.append([InlineKeyboardButton('Удалить из избранного', callback_data=f"add__rem__{movie_id}")])
+        keyboard.append([InlineKeyboardButton('Удалить из избранного', callback_data=f"add__{movie_id}__rem")])
     else:
-        keyboard.append([InlineKeyboardButton('Добавить в избранное', callback_data=f"add__add__{movie_id}")])
+        keyboard.append([InlineKeyboardButton('Добавить в избранное', callback_data=f"add__{movie_id}__add")])
     markup = InlineKeyboardMarkup(keyboard)
     result_message = f"Название: {response['name']}\n" \
                      f"Год: {response['year']}\n" \
@@ -359,32 +372,18 @@ async def add_to_favorite(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     data_split = query.data.split('__')
     movie_id = data_split[1]
+    fav = data_split[2]
+    logger.info(f"{fav}__{movie_id}")
     response = requests.post(
-        url=f"{URL_KINOKINO}{URL_INFO_MOVIES}",
+        url=f"{URL_KINOKINO}{URL_FAVORITE}",
         params={
             'username': f'{query.from_user.id}',
             'movie_id': f'{movie_id}',
+            'fav': f'{fav}',
         },
-    ).json()
-    buttons = [
-        InlineKeyboardButton('Все', callback_data="all__"),
-        InlineKeyboardButton('Запланировано', callback_data="planned__"),
-        InlineKeyboardButton('Смотрю', callback_data="watching__"),
-        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
-    ]
-    keyboard = [buttons]
-    if response['favorite']:
-        keyboard.append([InlineKeyboardButton('Удалить из избранного', callback_data=f"add__rem__{movie_id}")])
-    else:
-        keyboard.append([InlineKeyboardButton('Добавить в избранное', callback_data=f"add__add__{movie_id}")])
-    markup = InlineKeyboardMarkup(keyboard)
-    result_message = f"Название: {response['name']}\n" \
-                     f"Год: {response['year']}\n" \
-                     f"Сезонов: {response['seasons_count']}\n" \
-                     f"Серий: {response['episodes_count']}\n" \
-                     f"Превью: {response['preview_url']}\n"
+    ).status_code
     await query.answer()
-    await query.edit_message_text(result_message, reply_markup=markup)
+    await query.message.reply_text(f"{response}")
     return MOVIES
 
 
@@ -415,8 +414,7 @@ def main() -> None:
                 CallbackQueryHandler(completed_movies, pattern="^completed__$"),
                 CallbackQueryHandler(favorite_movies, pattern="^favorite__$"),
                 CallbackQueryHandler(movie_info, pattern="^info__"),
-                CallbackQueryHandler(add_to_favorite, pattern="^add__"),
-
+                CallbackQueryHandler(movie_info, pattern="^add__"),
             ],
 
         },
