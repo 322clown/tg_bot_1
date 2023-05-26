@@ -70,7 +70,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         ['Поиск фильма'],
         ['Мои фильмы', 'Моя статистика']
     ]
-    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    markup = ReplyKeyboardMarkup(reply_keyboard)
     if response.status_code == 200:
         await update.message.reply_text('🫖', reply_markup=markup)
     if response.status_code == 201:
@@ -78,18 +78,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 
 async def search(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text("Введите название... или если передумали /skip")
+    reply_keyboard = [
+        ['/skip']
+    ]
+    markup = ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+    await update.message.reply_text("Введите название... или если передумали /skip", reply_markup=markup)
     return SEARCHING
 
 
 async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     search_text = update.message.text
+    reply_keyboard = [
+        ['Поиск фильма'],
+        ['Мои фильмы', 'Моя статистика']
+    ]
+    markup = ReplyKeyboardMarkup(reply_keyboard)
+    await update.message.reply_text('Идёт поиск...', reply_markup=markup)
     params = {'name': search_text}
     searching_result = requests.get(f'{URL_KINOKINO}{URL_SEARCH_FILM}', params).json()
     if not searching_result:
         await update.message.reply_text('Нет фильмов с таким названием')
         return ConversationHandler.END
-    result_message = 'Выберит фильм, который хотите добавить...\n'
+    result_message = 'Выберит фильм, который хотите добавить\n'
 
     reply_keyboard = []
 
@@ -116,7 +126,6 @@ async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
                 ]
             )
     markup = InlineKeyboardMarkup(reply_keyboard)
-
     await update.message.reply_text(result_message, reply_markup=markup)
 
     return ConversationHandler.END
@@ -146,7 +155,12 @@ async def searching_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    await update.message.reply_text('😢', reply_markup=ReplyKeyboardRemove())
+    reply_keyboard = [
+        ['Поиск фильма'],
+        ['Мои фильмы', 'Моя статистика']
+    ]
+    markup = ReplyKeyboardMarkup(reply_keyboard)
+    await update.message.reply_text('😢', reply_markup=markup)
 
     return ConversationHandler.END
 
