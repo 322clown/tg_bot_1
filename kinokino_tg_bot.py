@@ -86,6 +86,9 @@ async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     search_text = update.message.text
     params = {'name': search_text}
     searching_result = requests.get(f'{URL_KINOKINO}{URL_SEARCH_FILM}', params).json()
+    if not searching_result:
+        await update.message.reply_text('Нет фильмов с таким названием')
+        return ConversationHandler.END
     result_message = 'Выберит фильм, который хотите добавить...\n'
 
     reply_keyboard = []
