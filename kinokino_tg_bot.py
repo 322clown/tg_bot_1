@@ -372,10 +372,11 @@ async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     markup = InlineKeyboardMarkup(keyboard)
     result_message = f"Название: {response['name']}\n" \
                      f"Статус: {movie_status}\n" \
-                     f"Год: {response['year']}\n" \
-                     f"Сезонов: {response['seasons_count']}\n" \
-                     f"Серий: {response['episodes_count']}\n" \
-                     f"Превью: {response['preview_url']}\n"
+                     f"Год: {response['year']}\n"
+    if response['episodes_count'] and response['seasons_count'] != 'None':
+        result_message += f"Сезонов: {response['seasons_count']}\n" \
+                          f"Серий: {response['episodes_count']}\n"
+    result_message += f"Превью: {response['preview_url']}\n"
     await query.answer()
     await query.edit_message_text(result_message, reply_markup=markup)
     return MOVIES
