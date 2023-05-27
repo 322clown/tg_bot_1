@@ -453,6 +453,8 @@ def main() -> None:
 
     application.add_handler(MessageHandler(filters.Regex("^Моя статистика$"), statistics))
 
+    application.add_handler(MessageHandler(filters.Regex("^Мои фильмы$"), my_movies))
+
     application.run_polling()
 
 
