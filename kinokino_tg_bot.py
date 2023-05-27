@@ -394,7 +394,26 @@ async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     if response['episodes_count'] and response['seasons_count'] != 'None':
         result_message += f"Сезонов: {response['seasons_count']}\n" \
                           f"Серий: {response['episodes_count']}\n"
+        movie_details_buttons = [
+            InlineKeyboardButton(f"Сезоны", callback_data=f"seasons__{movie_id}"),
+            InlineKeyboardButton(f"Серии", callback_data=f"episodes__{movie_id}")
+        ]
+        keyboard.append(movie_details_buttons)
     result_message += f"Превью: {response['preview_url']}\n"
+    await query.answer()
+    await query.edit_message_text(result_message, reply_markup=markup)
+    return MOVIES
+
+
+async def movie_episodes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(result_message, reply_markup=markup)
+    return MOVIES
+
+
+async def movie_seasons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    query = update.callback_query
     await query.answer()
     await query.edit_message_text(result_message, reply_markup=markup)
     return MOVIES
@@ -432,6 +451,8 @@ def main() -> None:
                 CallbackQueryHandler(movie_info, pattern="^info__"),
                 CallbackQueryHandler(movie_info, pattern="^add__"),
                 CallbackQueryHandler(movie_info, pattern="^change__"),
+                CallbackQueryHandler(movie_seasons, pattern="^seasons__"),
+                CallbackQueryHandler(movie_episodes, pattern="^episodes__"),
             ],
 
         },
