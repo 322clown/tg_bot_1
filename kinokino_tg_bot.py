@@ -431,7 +431,7 @@ async def movie_seasons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> s
         InlineKeyboardButton('Просмотрено', callback_data="completed__"),
     ]
     keyboard = [buttons]
-    for i in range(1, response['seasons'] + 1):
+    for i in response['seasons']:
         callback_data = f"season_details__{movie_id}__{i}"
         keyboard.append([InlineKeyboardButton(f"{i} Сезон", callback_data=callback_data)])
     markup = InlineKeyboardMarkup(keyboard)
@@ -475,9 +475,9 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     ]
     completed_episodes = response['complete_episodes']
     keyboard = [buttons]
-    for i in range(1, response['episodes'] + 1):
-        callback_data = f"episode__{movie_id}__{season_number}__{i+1}__"
-        if i + 1 in completed_episodes:
+    for i in response['episodes']:
+        callback_data = f"episode__{movie_id}__{season_number}__{i}__"
+        if i in completed_episodes:
             callback_data += 'rem'
             keyboard.append([InlineKeyboardButton(f"{i} Серия ✅", callback_data=callback_data)])
         else:
