@@ -407,8 +407,7 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 'season_number': season_number,
                 'complete': complete,
             }
-        ).text[1:-1]
-        await query.message.reply_text(f"{response_episode}")
+        ).status_code
     response = requests.post(
         url=f"{URL_KINOKINO}{URL_SEASONS_EPISODES}",
         params={
@@ -420,15 +419,20 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     buttons = []
     completed_episodes = response['complete_episodes']
     keyboard = [buttons]
-
+    episodes_buttons = []
     for i in response['episodes']:
         callback_data = f"episode__{movie_id}__{season_number}__{i}__"
         if i in completed_episodes:
             callback_data += 'rem'
-            keyboard.append([InlineKeyboardButton(f"{i} Серия ✅", callback_data=callback_data)])
+            episodes_buttons.append(InlineKeyboardButton(f"{i} Серия ✅", callback_data=callback_data))
         else:
             callback_data += 'add'
-            keyboard.append([InlineKeyboardButton(f"{i} Серия", callback_data=callback_data)])
+            episodes_buttons.append(InlineKeyboardButton(f"{i} Серия", callback_data=callback_data))
+        if len(episodes_buttons) == 3:
+            keyboard.append(episodes_buttons)
+            episodes_buttons = []
+    if len(episodes_buttons):
+        keyboard.append(episodes_buttons)
     keyboard.append([InlineKeyboardButton("К сезонам", callback_data=f"seasons__{movie_id}")]),
     markup = InlineKeyboardMarkup(keyboard)
     await query.answer()
