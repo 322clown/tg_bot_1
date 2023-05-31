@@ -420,6 +420,7 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     buttons = []
     completed_episodes = response['complete_episodes']
     keyboard = [buttons]
+
     for i in response['episodes']:
         callback_data = f"episode__{movie_id}__{season_number}__{i}__"
         if i in completed_episodes:
