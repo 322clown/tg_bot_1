@@ -381,7 +381,7 @@ async def movie_seasons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> s
     buttons = []
     keyboard = [buttons]
     for i in response['seasons']:
-        callback_data = f"season_details__{movie_id}__{i}"
+        callback_data = f"season_details__{movie_id}__{i}__1"
         keyboard.append([InlineKeyboardButton(f"{i} Сезон", callback_data=callback_data)])
     keyboard.append([InlineKeyboardButton("К фильму", callback_data=f"info__{movie_id}")]),
     markup = InlineKeyboardMarkup(keyboard)
@@ -395,9 +395,10 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     data_split = query.data.split('__')
     movie_id = data_split[1]
     season_number = data_split[2]
+    page = int(data_split[3])
     if data_split[0] == 'episode':
-        episode_number = data_split[3]
-        complete = data_split[4]
+        episode_number = data_split[4]
+        complete = data_split[5]
         response_episode = requests.post(
             url=f"{URL_KINOKINO}{URL_ADD_EPISODE}",
             params={
@@ -416,12 +417,29 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             'season_number': season_number,
         }
     ).json()
+    logger.info(f"{URL_KINOKINO}{URL_SEASONS_EPISODES}\n"
+                f"username__{query.from_user.id}\n"
+                f"movie_id__{movie_id}\n"
+                f"season_number__{season_number}")
     buttons = []
     completed_episodes = response['complete_episodes']
     keyboard = [buttons]
     episodes_buttons = []
-    for i in response['episodes']:
-        callback_data = f"episode__{movie_id}__{season_number}__{i}__"
+    pages = 1
+    if len(response['episodes']) > 90:
+        all_episodes = response['episodes']
+        pages = 1 + len(all_episodes) // 90
+        if pages:
+            if len(all_episodes) % 90 == 0:
+                pages += 1
+        episodes_list = all_episodes[(page - 1) * 90:90 * page]
+        pages = [i for i in range(1, pages + 1) if i != page]
+        logger.info(pages)
+
+    else:
+        episodes_list = response['episodes']
+    for i in episodes_list:
+        callback_data = f"episode__{movie_id}__{season_number}__{page}__{i}__"
         if i in completed_episodes:
             callback_data += 'rem'
             episodes_buttons.append(InlineKeyboardButton(f"{i} Серия ✅", callback_data=callback_data))
@@ -434,6 +452,16 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if len(episodes_buttons):
         keyboard.append(episodes_buttons)
     keyboard.append([InlineKeyboardButton("К сезонам", callback_data=f"seasons__{movie_id}")]),
+    if pages != 1:
+        pages_buttons = []
+        for i in pages:
+            callback_data = f"season_details__{movie_id}__{season_number}__{i}"
+            pages_buttons.append(InlineKeyboardButton(f"{i} Страница", callback_data=callback_data))
+            if len(pages_buttons) == 3:
+                keyboard.append(pages_buttons)
+                pages_buttons = []
+        if len(pages_buttons):
+            keyboard.append(pages_buttons)
     markup = InlineKeyboardMarkup(keyboard)
     await query.answer()
     await query.edit_message_text('Серии:', reply_markup=markup)
