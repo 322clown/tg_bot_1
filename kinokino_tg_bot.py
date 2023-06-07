@@ -162,7 +162,7 @@ async def skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         ['Мои фильмы', 'Моя статистика']
     ]
     markup = ReplyKeyboardMarkup(reply_keyboard)
-    await update.message.reply_text('😢', reply_markup=markup)
+    await update.message.reply_text('//', reply_markup=markup)
 
     return ConversationHandler.END
 
@@ -188,16 +188,12 @@ async def statistics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def my_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     user = update.effective_user
     keyboard = [
-        [
-            InlineKeyboardButton('Все', callback_data="all__"),
-            InlineKeyboardButton('Запланировано', callback_data="planned__"),
-            InlineKeyboardButton('Смотрю', callback_data="watching__"),
-            InlineKeyboardButton('Просмотрено', callback_data="completed__"),
-            InlineKeyboardButton('Избранное', callback_data="favorite__"),
+            ['Все', 'Запланировано'],
+            ['Смотрю', 'Просмотрено'],
+            ['Избранное', 'Закрыть'],
         ]
-    ]
 
-    markup = InlineKeyboardMarkup(keyboard)
+    markup = ReplyKeyboardMarkup(keyboard)
     await update.message.reply_text('Выберите:',
                                     reply_markup=markup)
 
@@ -209,19 +205,13 @@ async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
 
 async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    query = update.callback_query
-    await query.answer()
+    user = update.effective_user
     keyboard = []
-    buttons = [
-        InlineKeyboardButton('Все', callback_data="all__"),
-        InlineKeyboardButton('Смотрю', callback_data="watching__"),
-        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
-        InlineKeyboardButton('Избранное', callback_data="favorite__"),
-    ]
+    buttons = []
     response = requests.post(
         url=f"{URL_KINOKINO}{URL_MOVIES}",
         params={
-            'username': query.from_user.id,
+            'username': user.id,
             'field_name': PLANNED_TO_WATCH,
         },
     ).json()
@@ -230,24 +220,18 @@ async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
     keyboard.append(buttons)
     markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(f'В планах:\n', reply_markup=markup)
+    await update.message.reply_text(f'В планах:\n', reply_markup=markup)
     return MOVIES
 
 
 async def watching_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    query = update.callback_query
-    await query.answer()
+    user = update.effective_user
     keyboard = []
-    buttons = [
-        InlineKeyboardButton('Все', callback_data="all__"),
-        InlineKeyboardButton('Запланировано', callback_data="planned__"),
-        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
-        InlineKeyboardButton('Избранное', callback_data="favorite__"),
-    ]
+    buttons = []
     response = requests.post(
         url=f"{URL_KINOKINO}{URL_MOVIES}",
         params={
-            'username': query.from_user.id,
+            'username': user.id,
             'field_name': WATCHING,
         },
     ).json()
@@ -256,24 +240,18 @@ async def watching_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
     keyboard.append(buttons)
     markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(f'Смотрю:\n', reply_markup=markup)
+    await update.message.reply_text(f'Смотрю:\n', reply_markup=markup)
     return MOVIES
 
 
 async def completed_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    query = update.callback_query
-    await query.answer()
+    user = update.effective_user
     keyboard = []
-    buttons = [
-        InlineKeyboardButton('Все', callback_data="all__"),
-        InlineKeyboardButton('Запланировано', callback_data="planned__"),
-        InlineKeyboardButton('Смотрю', callback_data="watching__"),
-        InlineKeyboardButton('Избранное', callback_data="favorite__"),
-    ]
+    buttons = []
     response = requests.post(
         url=f"{URL_KINOKINO}{URL_MOVIES}",
         params={
-            'username': query.from_user.id,
+            'username': user.id,
             'field_name': COMPLETED,
         },
     ).json()
@@ -282,24 +260,18 @@ async def completed_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
     keyboard.append(buttons)
     markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(f'Просмотренные:\n', reply_markup=markup)
+    await update.message.reply_text(f'Просмотренные:\n', reply_markup=markup)
     return MOVIES
 
 
 async def all_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    query = update.callback_query
-    await query.answer()
+    user = update.effective_user
     keyboard = []
-    buttons = [
-        InlineKeyboardButton('Запланировано', callback_data="planned__"),
-        InlineKeyboardButton('Смотрю', callback_data="watching__"),
-        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
-        InlineKeyboardButton('Избранное', callback_data="favorite__"),
-    ]
+    buttons = []
     response = requests.post(
         url=f"{URL_KINOKINO}{URL_MOVIES}",
         params={
-            'username': query.from_user.id,
+            'username': user.id,
             'field_name': 'None',
         },
     ).json()
@@ -308,24 +280,18 @@ async def all_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
         keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
     keyboard.append(buttons)
     markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(f'Все:\n', reply_markup=markup)
+    await update.message.reply_text(f'Все:\n', reply_markup=markup)
     return MOVIES
 
 
 async def favorite_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    query = update.callback_query
-    await query.answer()
+    user = update.effective_user
     keyboard = []
-    buttons = [
-        InlineKeyboardButton('Все', callback_data="all__"),
-        InlineKeyboardButton('Запланировано', callback_data="planned__"),
-        InlineKeyboardButton('Смотрю', callback_data="watching__"),
-        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
-    ]
+    buttons = []
     response = requests.post(
         url=f"{URL_KINOKINO}{URL_MOVIES}",
         params={
-            'username': query.from_user.id,
+            'username': user.id,
             'field_name': 'favorite',
         },
     ).json()
@@ -334,7 +300,7 @@ async def favorite_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
     keyboard.append(buttons)
     markup = InlineKeyboardMarkup(keyboard)
-    await query.edit_message_text(f'Избранное:\n', reply_markup=markup)
+    await update.message.reply_text(f'Избранное:\n', reply_markup=markup)
     return MOVIES
 
 
@@ -371,12 +337,7 @@ async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
             'movie_id': f'{movie_id}',
         },
     ).json()
-    buttons = [
-        InlineKeyboardButton('Все', callback_data="all__"),
-        InlineKeyboardButton('Запланировано', callback_data="planned__"),
-        InlineKeyboardButton('Смотрю', callback_data="watching__"),
-        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
-    ]
+    buttons = []
     keyboard = [buttons]
     if response['favorite']:
         keyboard.append([InlineKeyboardButton('Удалить из избранного', callback_data=f"add__{movie_id}__rem")])
@@ -405,13 +366,6 @@ async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     return MOVIES
 
 
-async def movie_episodes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    # query = update.callback_query
-    # await query.answer()
-    # await query.edit_message_text(result_message, reply_markup=markup)
-    return MOVIES
-
-
 async def movie_seasons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     query = update.callback_query
     data_split = query.data.split('__')
@@ -424,16 +378,12 @@ async def movie_seasons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> s
             'season_number': 'None',
         }
     ).json()
-    buttons = [
-        InlineKeyboardButton('Все', callback_data="all__"),
-        InlineKeyboardButton('Запланировано', callback_data="planned__"),
-        InlineKeyboardButton('Смотрю', callback_data="watching__"),
-        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
-    ]
+    buttons = []
     keyboard = [buttons]
     for i in response['seasons']:
         callback_data = f"season_details__{movie_id}__{i}"
         keyboard.append([InlineKeyboardButton(f"{i} Сезон", callback_data=callback_data)])
+    keyboard.append([InlineKeyboardButton("К фильму", callback_data=f"info__{movie_id}")]),
     markup = InlineKeyboardMarkup(keyboard)
     await query.answer()
     await query.edit_message_text('Сезоны:', reply_markup=markup)
@@ -457,8 +407,7 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 'season_number': season_number,
                 'complete': complete,
             }
-        ).text[1:-1]
-        await query.message.reply_text(f"{response_episode}")
+        ).status_code
     response = requests.post(
         url=f"{URL_KINOKINO}{URL_SEASONS_EPISODES}",
         params={
@@ -467,26 +416,39 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             'season_number': season_number,
         }
     ).json()
-    buttons = [
-        InlineKeyboardButton('Все', callback_data="all__"),
-        InlineKeyboardButton('Запланировано', callback_data="planned__"),
-        InlineKeyboardButton('Смотрю', callback_data="watching__"),
-        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
-    ]
+    buttons = []
     completed_episodes = response['complete_episodes']
     keyboard = [buttons]
+    episodes_buttons = []
     for i in response['episodes']:
         callback_data = f"episode__{movie_id}__{season_number}__{i}__"
         if i in completed_episodes:
             callback_data += 'rem'
-            keyboard.append([InlineKeyboardButton(f"{i} Серия ✅", callback_data=callback_data)])
+            episodes_buttons.append(InlineKeyboardButton(f"{i} Серия ✅", callback_data=callback_data))
         else:
             callback_data += 'add'
-            keyboard.append([InlineKeyboardButton(f"{i} Серия", callback_data=callback_data)])
+            episodes_buttons.append(InlineKeyboardButton(f"{i} Серия", callback_data=callback_data))
+        if len(episodes_buttons) == 3:
+            keyboard.append(episodes_buttons)
+            episodes_buttons = []
+    if len(episodes_buttons):
+        keyboard.append(episodes_buttons)
+    keyboard.append([InlineKeyboardButton("К сезонам", callback_data=f"seasons__{movie_id}")]),
     markup = InlineKeyboardMarkup(keyboard)
     await query.answer()
     await query.edit_message_text('Серии:', reply_markup=markup)
     return MOVIES
+
+
+async def close_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    reply_keyboard = [
+        ['Поиск фильма'],
+        ['Мои фильмы', 'Моя статистика']
+    ]
+    markup = ReplyKeyboardMarkup(reply_keyboard)
+    await update.message.reply_text('//', reply_markup=markup)
+
+    return ConversationHandler.END
 
 
 def main() -> None:
@@ -513,11 +475,11 @@ def main() -> None:
         states={
 
             MOVIES: [
-                CallbackQueryHandler(all_movies, pattern="^all__$"),
-                CallbackQueryHandler(planned_movies, pattern="^planned__$"),
-                CallbackQueryHandler(watching_movies, pattern="^watching__$"),
-                CallbackQueryHandler(completed_movies, pattern="^completed__$"),
-                CallbackQueryHandler(favorite_movies, pattern="^favorite__$"),
+                MessageHandler(filters.Regex("^Все$"), all_movies),
+                MessageHandler(filters.Regex("^Запланировано"), planned_movies),
+                MessageHandler(filters.Regex("^Смотрю$"), watching_movies),
+                MessageHandler(filters.Regex("^Просмотрено$"), completed_movies),
+                MessageHandler(filters.Regex("^Избранное$"), favorite_movies),
                 CallbackQueryHandler(movie_info, pattern="^info__"),
                 CallbackQueryHandler(movie_info, pattern="^add__"),
                 CallbackQueryHandler(movie_info, pattern="^change__"),
@@ -528,7 +490,7 @@ def main() -> None:
 
         },
         fallbacks=[
-            CommandHandler("my_movies", my_movies),
+            MessageHandler(filters.Regex("^Закрыть$"), close_movies)
         ],
 
     )
