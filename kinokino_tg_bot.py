@@ -42,6 +42,8 @@ URL_MOVIES = 'v1/user_movies/'
 URL_INFO_MOVIES = 'v1/movie_info/'
 URL_FAVORITE = 'v1/add_favorite/'
 URL_CHANGE_STATUS = 'v1/change_status/'
+URL_SEASONS_EPISODES = 'v1/seasons_episodes/'
+URL_ADD_EPISODE = 'v1/add_episode/'
 
 SEARCHING = range(1)
 MOVIES = range(1)
@@ -342,7 +344,6 @@ async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     movie_id = data_split[1]
     if data_split[0] == 'add':
         fav = data_split[2]
-        logger.info(f"{fav}__{movie_id}")
         response_fav = requests.post(
             url=f"{URL_KINOKINO}{URL_FAVORITE}",
             params={
@@ -387,16 +388,104 @@ async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     for status in statuses:
         status_buttons.append(InlineKeyboardButton(f"{status}", callback_data=f"change__{movie_id}__{status}"))
     keyboard.append(status_buttons)
-    markup = InlineKeyboardMarkup(keyboard)
     result_message = f"Название: {response['name']}\n" \
                      f"Статус: {movie_status}\n" \
                      f"Год: {response['year']}\n"
     if response['episodes_count'] and response['seasons_count'] != 'None':
         result_message += f"Сезонов: {response['seasons_count']}\n" \
                           f"Серий: {response['episodes_count']}\n"
+        movie_details_buttons = [
+            InlineKeyboardButton(f"Сезоны", callback_data=f"seasons__{movie_id}"),
+        ]
+        keyboard.append(movie_details_buttons)
+    markup = InlineKeyboardMarkup(keyboard)
     result_message += f"Превью: {response['preview_url']}\n"
     await query.answer()
     await query.edit_message_text(result_message, reply_markup=markup)
+    return MOVIES
+
+
+async def movie_episodes(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    # query = update.callback_query
+    # await query.answer()
+    # await query.edit_message_text(result_message, reply_markup=markup)
+    return MOVIES
+
+
+async def movie_seasons(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    query = update.callback_query
+    data_split = query.data.split('__')
+    movie_id = data_split[1]
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_SEASONS_EPISODES}",
+        params={
+            'username': f'{query.from_user.id}',
+            'movie_id': f'{movie_id}',
+            'season_number': 'None',
+        }
+    ).json()
+    buttons = [
+        InlineKeyboardButton('Все', callback_data="all__"),
+        InlineKeyboardButton('Запланировано', callback_data="planned__"),
+        InlineKeyboardButton('Смотрю', callback_data="watching__"),
+        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
+    ]
+    keyboard = [buttons]
+    for i in response['seasons']:
+        callback_data = f"season_details__{movie_id}__{i}"
+        keyboard.append([InlineKeyboardButton(f"{i} Сезон", callback_data=callback_data)])
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.answer()
+    await query.edit_message_text('Сезоны:', reply_markup=markup)
+    return MOVIES
+
+
+async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    query = update.callback_query
+    data_split = query.data.split('__')
+    movie_id = data_split[1]
+    season_number = data_split[2]
+    if data_split[0] == 'episode':
+        episode_number = data_split[3]
+        complete = data_split[4]
+        response_episode = requests.post(
+            url=f"{URL_KINOKINO}{URL_ADD_EPISODE}",
+            params={
+                'username': f'{query.from_user.id}',
+                'movie_id': f'{movie_id}',
+                'episode_number': f'{episode_number}',
+                'season_number': season_number,
+                'complete': complete,
+            }
+        ).text[1:-1]
+        await query.message.reply_text(f"{response_episode}")
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_SEASONS_EPISODES}",
+        params={
+            'username': f'{query.from_user.id}',
+            'movie_id': f'{movie_id}',
+            'season_number': season_number,
+        }
+    ).json()
+    buttons = [
+        InlineKeyboardButton('Все', callback_data="all__"),
+        InlineKeyboardButton('Запланировано', callback_data="planned__"),
+        InlineKeyboardButton('Смотрю', callback_data="watching__"),
+        InlineKeyboardButton('Просмотрено', callback_data="completed__"),
+    ]
+    completed_episodes = response['complete_episodes']
+    keyboard = [buttons]
+    for i in response['episodes']:
+        callback_data = f"episode__{movie_id}__{season_number}__{i}__"
+        if i in completed_episodes:
+            callback_data += 'rem'
+            keyboard.append([InlineKeyboardButton(f"{i} Серия ✅", callback_data=callback_data)])
+        else:
+            callback_data += 'add'
+            keyboard.append([InlineKeyboardButton(f"{i} Серия", callback_data=callback_data)])
+    markup = InlineKeyboardMarkup(keyboard)
+    await query.answer()
+    await query.edit_message_text('Серии:', reply_markup=markup)
     return MOVIES
 
 
@@ -432,6 +521,9 @@ def main() -> None:
                 CallbackQueryHandler(movie_info, pattern="^info__"),
                 CallbackQueryHandler(movie_info, pattern="^add__"),
                 CallbackQueryHandler(movie_info, pattern="^change__"),
+                CallbackQueryHandler(movie_seasons, pattern="^seasons__"),
+                CallbackQueryHandler(season_details, pattern="^season_details__"),
+                CallbackQueryHandler(season_details, pattern="^episode__"),
             ],
 
         },
