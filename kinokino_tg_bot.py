@@ -269,7 +269,15 @@ async def all_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
 
 
 async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    user = update.effective_user
+    query = update.callback_query
+    if query:
+        user = query.from_user
+        data_split = query.data.split('__')
+        page = int(data_split[1])
+        await query.answer()
+    else:
+        user = update.effective_user
+        page = 1
     keyboard = []
     buttons = []
     response = requests.post(
@@ -279,17 +287,39 @@ async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             'field_name': PLANNED_TO_WATCH,
         },
     ).json()
-    for i, movie in enumerate(response['films']):
+    all_films = response['films']
+
+    page_buttons, film_list = pagination_util(page=page, callback='planned', list_elements=all_films)
+
+
+    for i, movie in enumerate(film_list):
         callback_data = f"info__{movie['id']}"
         keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
     keyboard.append(buttons)
+
+    if page_buttons:
+        for button in page_buttons:
+            keyboard.append(button)
+
     markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(f'В планах:\n', reply_markup=markup)
-    return MOVIES
+    if query:
+        await query.edit_message_text('В планах:\n', reply_markup=markup)
+        return MOVIES
+    else:
+        await update.message.reply_text(f'В планах:\n', reply_markup=markup)
+        return MOVIES
 
 
 async def watching_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    user = update.effective_user
+    query = update.callback_query
+    if query:
+        user = query.from_user
+        data_split = query.data.split('__')
+        page = int(data_split[1])
+        await query.answer()
+    else:
+        user = update.effective_user
+        page = 1
     keyboard = []
     buttons = []
     response = requests.post(
@@ -299,17 +329,38 @@ async def watching_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             'field_name': WATCHING,
         },
     ).json()
-    for i, movie in enumerate(response['films']):
+    all_films = response['films']
+
+    page_buttons, film_list = pagination_util(page=page, callback='all', list_elements=all_films)
+
+    for i, movie in enumerate(film_list):
         callback_data = f"info__{movie['id']}"
         keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
+
+    if page_buttons:
+        for button in page_buttons:
+            keyboard.append(button)
+
     keyboard.append(buttons)
     markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(f'Смотрю:\n', reply_markup=markup)
-    return MOVIES
+    if query:
+        await query.edit_message_text('Смотрю:\n', reply_markup=markup)
+        return MOVIES
+    else:
+        await update.message.reply_text('Смотрю:\n', reply_markup=markup)
+        return MOVIES
 
 
 async def completed_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    user = update.effective_user
+    query = update.callback_query
+    if query:
+        user = query.from_user
+        data_split = query.data.split('__')
+        page = int(data_split[1])
+        await query.answer()
+    else:
+        user = update.effective_user
+        page = 1
     keyboard = []
     buttons = []
     response = requests.post(
@@ -319,17 +370,38 @@ async def completed_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             'field_name': COMPLETED,
         },
     ).json()
-    for i, movie in enumerate(response['films']):
+    all_films = response['films']
+
+    page_buttons, film_list = pagination_util(page=page, callback='all', list_elements=all_films)
+
+    for i, movie in enumerate(film_list):
         callback_data = f"info__{movie['id']}"
         keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
     keyboard.append(buttons)
+
+    if page_buttons:
+        for button in page_buttons:
+            keyboard.append(button)
+
     markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(f'Просмотренные:\n', reply_markup=markup)
-    return MOVIES
+    if query:
+        await query.edit_message_text('Просмотренные:\n', reply_markup=markup)
+        return MOVIES
+    else:
+        await update.message.reply_text('Просмотренные:\n', reply_markup=markup)
+        return MOVIES
 
 
 async def favorite_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    user = update.effective_user
+    query = update.callback_query
+    if query:
+        user = query.from_user
+        data_split = query.data.split('__')
+        page = int(data_split[1])
+        await query.answer()
+    else:
+        user = update.effective_user
+        page = 1
     keyboard = []
     buttons = []
     response = requests.post(
@@ -339,13 +411,26 @@ async def favorite_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             'field_name': 'favorite',
         },
     ).json()
+    all_films = response['films']
+
+    page_buttons, film_list = pagination_util(page=page, callback='all', list_elements=all_films)
+
     for i, movie in enumerate(response['films']):
         callback_data = f"info__{movie['id']}"
         keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
     keyboard.append(buttons)
+
+    if page_buttons:
+        for button in page_buttons:
+            keyboard.append(button)
+
     markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(f'Избранное:\n', reply_markup=markup)
-    return MOVIES
+    if query:
+        await query.edit_message_text('Избранное:\n', reply_markup=markup)
+        return MOVIES
+    else:
+        await update.message.reply_text('Избранное:\n', reply_markup=markup)
+        return MOVIES
 
 
 async def movie_info(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
