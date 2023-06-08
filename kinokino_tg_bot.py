@@ -229,6 +229,7 @@ def pagination_util(page, callback, list_elements):
 
 async def all_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     query = update.callback_query
+    callback = 'all'
     if query:
         user = query.from_user
         data_split = query.data.split('__')
@@ -248,7 +249,7 @@ async def all_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     ).json()
     all_films = response['films']
 
-    page_buttons, film_list = pagination_util(page=page, callback='all', list_elements=all_films)
+    page_buttons, film_list = pagination_util(page=page, callback=callback, list_elements=all_films)
 
     for i, movie in enumerate(film_list):
         callback_data = f"info__{movie['id']}"
@@ -270,6 +271,7 @@ async def all_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
 
 async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     query = update.callback_query
+    callback = 'planned'
     if query:
         user = query.from_user
         data_split = query.data.split('__')
@@ -289,7 +291,7 @@ async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     ).json()
     all_films = response['films']
 
-    page_buttons, film_list = pagination_util(page=page, callback='planned', list_elements=all_films)
+    page_buttons, film_list = pagination_util(page=page, callback=callback, list_elements=all_films)
 
 
     for i, movie in enumerate(film_list):
@@ -312,6 +314,7 @@ async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 async def watching_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     query = update.callback_query
+    callback = 'watching'
     if query:
         user = query.from_user
         data_split = query.data.split('__')
@@ -331,7 +334,7 @@ async def watching_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     ).json()
     all_films = response['films']
 
-    page_buttons, film_list = pagination_util(page=page, callback='all', list_elements=all_films)
+    page_buttons, film_list = pagination_util(page=page, callback=callback, list_elements=all_films)
 
     for i, movie in enumerate(film_list):
         callback_data = f"info__{movie['id']}"
@@ -353,6 +356,7 @@ async def watching_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
 async def completed_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     query = update.callback_query
+    callback = 'completed'
     if query:
         user = query.from_user
         data_split = query.data.split('__')
@@ -372,7 +376,7 @@ async def completed_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     ).json()
     all_films = response['films']
 
-    page_buttons, film_list = pagination_util(page=page, callback='all', list_elements=all_films)
+    page_buttons, film_list = pagination_util(page=page, callback=callback, list_elements=all_films)
 
     for i, movie in enumerate(film_list):
         callback_data = f"info__{movie['id']}"
@@ -394,6 +398,7 @@ async def completed_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 async def favorite_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
     query = update.callback_query
+    callback = 'favorite'
     if query:
         user = query.from_user
         data_split = query.data.split('__')
@@ -413,7 +418,7 @@ async def favorite_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     ).json()
     all_films = response['films']
 
-    page_buttons, film_list = pagination_util(page=page, callback='all', list_elements=all_films)
+    page_buttons, film_list = pagination_util(page=page, callback=callback, list_elements=all_films)
 
     for i, movie in enumerate(response['films']):
         callback_data = f"info__{movie['id']}"
