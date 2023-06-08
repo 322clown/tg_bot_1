@@ -46,7 +46,7 @@ URL_SEASONS_EPISODES = 'v1/seasons_episodes/'
 URL_ADD_EPISODE = 'v1/add_episode/'
 
 SEARCHING = range(1)
-MOVIES = range(1)
+MOVIES, MOVIE_INFO = range(2)
 
 PLANNED_TO_WATCH: str = 'Запланировано'
 WATCHING: str = 'Смотрю'
@@ -200,8 +200,72 @@ async def my_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return MOVIES
 
 
-async def done(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    return MOVIES
+def pagination_util(page, callback, list_elements):
+
+    pages = 1
+    if len(list_elements) > 90:
+        pages = 1 + len(list_elements) // 90
+        if pages:
+            if len(list_elements) % 90 == 0:
+                pages += 1
+        result_list = list_elements[(page - 1) * 90:90 * page]
+        pages = [i for i in range(1, pages + 1) if i != page]
+    else:
+        result_list = list_elements
+
+    buttons = []
+    if pages != 1:
+        pages_buttons = []
+        for i in pages:
+            callback_data = f"{callback}__{i}"
+            pages_buttons.append(InlineKeyboardButton(f"{i} Страница", callback_data=callback_data))
+            if len(pages_buttons) == 3:
+                buttons.append(pages_buttons)
+                pages_buttons = []
+        if len(pages_buttons):
+            buttons.append(pages_buttons)
+    return buttons, result_list
+
+
+async def all_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
+    query = update.callback_query
+    if query:
+        user = query.from_user
+        data_split = query.data.split('__')
+        page = int(data_split[1])
+        await query.answer()
+    else:
+        user = update.effective_user
+        page = 1
+    keyboard = []
+    buttons = []
+    response = requests.post(
+        url=f"{URL_KINOKINO}{URL_MOVIES}",
+        params={
+            'username': user.id,
+            'field_name': 'None',
+        },
+    ).json()
+    all_films = response['films']
+
+    page_buttons, film_list = pagination_util(page=page, callback='all', list_elements=all_films)
+
+    for i, movie in enumerate(film_list):
+        callback_data = f"info__{movie['id']}"
+        keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
+    keyboard.append(buttons)
+
+    if page_buttons:
+        for button in page_buttons:
+            keyboard.append(button)
+
+    markup = InlineKeyboardMarkup(keyboard)
+    if query:
+        await query.edit_message_text('Все\n', reply_markup=markup)
+        return MOVIES
+    else:
+        await update.message.reply_text(f'Все:\n', reply_markup=markup)
+        return MOVIES
 
 
 async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
@@ -261,26 +325,6 @@ async def completed_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     keyboard.append(buttons)
     markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(f'Просмотренные:\n', reply_markup=markup)
-    return MOVIES
-
-
-async def all_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> str:
-    user = update.effective_user
-    keyboard = []
-    buttons = []
-    response = requests.post(
-        url=f"{URL_KINOKINO}{URL_MOVIES}",
-        params={
-            'username': user.id,
-            'field_name': 'None',
-        },
-    ).json()
-    for i, movie in enumerate(response['films']):
-        callback_data = f"info__{movie['id']}"
-        keyboard.append([InlineKeyboardButton(f"{i + 1}) {movie['name']}", callback_data=callback_data)])
-    keyboard.append(buttons)
-    markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text(f'Все:\n', reply_markup=markup)
     return MOVIES
 
 
@@ -504,10 +548,20 @@ def main() -> None:
 
             MOVIES: [
                 MessageHandler(filters.Regex("^Все$"), all_movies),
+                CallbackQueryHandler(all_movies, pattern="^all__"),
+
                 MessageHandler(filters.Regex("^Запланировано"), planned_movies),
+                CallbackQueryHandler(planned_movies, pattern="^planned__"),
+
                 MessageHandler(filters.Regex("^Смотрю$"), watching_movies),
+                CallbackQueryHandler(watching_movies, pattern="^watching__"),
+
                 MessageHandler(filters.Regex("^Просмотрено$"), completed_movies),
+                CallbackQueryHandler(completed_movies, pattern="^completed__"),
+
                 MessageHandler(filters.Regex("^Избранное$"), favorite_movies),
+                CallbackQueryHandler(favorite_movies, pattern="^favorite__"),
+
                 CallbackQueryHandler(movie_info, pattern="^info__"),
                 CallbackQueryHandler(movie_info, pattern="^add__"),
                 CallbackQueryHandler(movie_info, pattern="^change__"),
