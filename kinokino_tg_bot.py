@@ -17,8 +17,8 @@ if __version_info__ < (20, 0, 0, "alpha", 1):
         f"{TG_VER} version of this example, "
         f"visit https://docs.python-telegram-bot.org/en/v{TG_VER}/examples.html"
     )
-from telegram import ForceReply, InlineKeyboardButton, InlineKeyboardMarkup, Update, ReplyKeyboardMarkup, \
-    ReplyKeyboardRemove
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, ReplyKeyboardMarkup
+    # ReplyKeyboardRemove, ForceReply
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -47,7 +47,7 @@ URL_CHANGE_STATUS = 'v1/change_status/'
 URL_SEASONS_EPISODES = 'v1/seasons_episodes/'
 URL_ADD_EPISODE = 'v1/add_episode/'
 
-SEARCHING = range(1)
+SEARCHING, SEARCHING_ADD = range(2)
 MOVIES, MOVIE_INFO = range(2)
 
 PLANNED_TO_WATCH: str = 'Запланировано'
@@ -135,7 +135,7 @@ async def searching(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 
-async def searching_select(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def searching_select(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     searching_text = query.data
     if searching_text.startswith('search__'):
@@ -188,7 +188,7 @@ async def statistics(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
 
 async def my_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    user = update.effective_user
+    # user = update.effective_user
     keyboard = [
             ['Все', 'Запланировано'],
             ['Смотрю', 'Просмотрено'],
@@ -205,27 +205,29 @@ async def my_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 def pagination_util(page, callback, list_elements):
 
     pages = 1
-    if len(list_elements) > 90:
-        pages = 1 + len(list_elements) // 90
+    result_list = list_elements
+    if len(result_list) > 90:
+        pages = 1 + len(result_list) // 90
         if pages:
-            if len(list_elements) % 90 == 0:
+            if len(result_list) % 90 == 0:
                 pages += 1
-        result_list = list_elements[(page - 1) * 90:90 * page]
-        pages = [i for i in range(1, pages + 1) if i != page]
-    else:
-        result_list = list_elements
+        result_list = result_list[(page - 1) * 90:90 * page]
 
     buttons = []
-    if pages != 1:
-        pages_buttons = []
-        for i in pages:
-            callback_data = f"{callback}__{i}"
-            pages_buttons.append(InlineKeyboardButton(f"{i} Страница", callback_data=callback_data))
-            if len(pages_buttons) == 3:
-                buttons.append(pages_buttons)
-                pages_buttons = []
-        if len(pages_buttons):
-            buttons.append(pages_buttons)
+    pages_buttons = []
+    callback_data = f"{callback}__"
+    if pages > 1:
+        if pages == page:
+            pages_buttons.append(InlineKeyboardButton(f"←", callback_data=f"{callback_data}{page - 1}"))
+            pages_buttons.append(InlineKeyboardButton(f"{page} из {pages}", callback_data=f"{callback_data}{page}"))
+        elif page == 1:
+            pages_buttons.append(InlineKeyboardButton(f"{page} из {pages}", callback_data=f"{callback_data}{page}"))
+            pages_buttons.append(InlineKeyboardButton(f"→", callback_data=f"{callback_data}{page + 1}"))
+        else:
+            pages_buttons.append(InlineKeyboardButton(f"←", callback_data=f"{callback_data}{page - 1}"))
+            pages_buttons.append(InlineKeyboardButton(f"{page} из {pages}", callback_data=f"{callback_data}{page}"))
+            pages_buttons.append(InlineKeyboardButton(f"→", callback_data=f"{callback_data}{page + 1}"))
+        buttons.append(pages_buttons)
     return buttons, result_list
 
 
@@ -294,7 +296,6 @@ async def planned_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     all_films = response['films']
 
     page_buttons, film_list = pagination_util(page=page, callback=callback, list_elements=all_films)
-
 
     for i, movie in enumerate(film_list):
         callback_data = f"info__{movie['id']}"
@@ -531,7 +532,9 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     data_split = query.data.split('__')
     movie_id = data_split[1]
     season_number = data_split[2]
+
     page = int(data_split[3])
+
     if data_split[0] == 'episode':
         episode_number = data_split[4]
         complete = data_split[5]
@@ -561,19 +564,18 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     completed_episodes = response['complete_episodes']
     keyboard = [buttons]
     episodes_buttons = []
+
     pages = 1
-    if len(response['episodes']) > 90:
+
+    episodes_list = response['episodes']
+    if len(episodes_list) > 90:
         all_episodes = response['episodes']
         pages = 1 + len(all_episodes) // 90
         if pages:
             if len(all_episodes) % 90 == 0:
                 pages += 1
         episodes_list = all_episodes[(page - 1) * 90:90 * page]
-        pages = [i for i in range(1, pages + 1) if i != page]
-        logger.info(pages)
 
-    else:
-        episodes_list = response['episodes']
     for i in episodes_list:
         callback_data = f"episode__{movie_id}__{season_number}__{page}__{i}__"
         if i in completed_episodes:
@@ -588,16 +590,24 @@ async def season_details(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if len(episodes_buttons):
         keyboard.append(episodes_buttons)
     keyboard.append([InlineKeyboardButton("К сезонам", callback_data=f"seasons__{movie_id}")]),
-    if pages != 1:
-        pages_buttons = []
-        for i in pages:
-            callback_data = f"season_details__{movie_id}__{season_number}__{i}"
-            pages_buttons.append(InlineKeyboardButton(f"{i} Страница", callback_data=callback_data))
-            if len(pages_buttons) == 3:
-                keyboard.append(pages_buttons)
-                pages_buttons = []
-        if len(pages_buttons):
-            keyboard.append(pages_buttons)
+
+    buttons = []
+    # pages_buttons = []
+    callback_data = f"season_details__{movie_id}__{season_number}__"
+    if pages > 1:
+        if pages == page:
+            buttons.append(InlineKeyboardButton(f"←", callback_data=f"{callback_data}{page - 1}"))
+            buttons.append(InlineKeyboardButton(f"{page} из {pages}", callback_data=f"{callback_data}{page}"))
+        elif page == 1:
+            buttons.append(InlineKeyboardButton(f"{page} из {pages}", callback_data=f"{callback_data}{page}"))
+            buttons.append(InlineKeyboardButton(f"→", callback_data=f"{callback_data}{page + 1}"))
+        else:
+            buttons.append(InlineKeyboardButton(f"←", callback_data=f"{callback_data}{page - 1}"))
+            buttons.append(InlineKeyboardButton(f"{page} из {pages}", callback_data=f"{callback_data}{page}"))
+            buttons.append(InlineKeyboardButton(f"→", callback_data=f"{callback_data}{page + 1}"))
+        # buttons.append(pages_buttons)
+        keyboard.append(buttons)
+
     markup = InlineKeyboardMarkup(keyboard)
     await query.answer()
     await query.edit_message_text('Серии:', reply_markup=markup)
