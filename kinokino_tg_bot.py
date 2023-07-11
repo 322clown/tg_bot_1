@@ -4,6 +4,8 @@ import requests
 
 from telegram import __version__ as TG_VER
 
+from secret import TOKEN
+
 try:
     from telegram import __version_info__
 except ImportError:
@@ -614,7 +616,7 @@ async def close_movies(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
 
 def main() -> None:
-    application = Application.builder().token("5454514886:AAFL06SwdfSCkv_afMBIvT576G-sEE5_cvY").build()
+    application = Application.builder().token(f"{TOKEN}").build()
 
     search_conv_handler = ConversationHandler(
         entry_points=[CommandHandler("search", search),
