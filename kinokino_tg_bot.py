@@ -34,7 +34,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-URL_KINOKINO = 'http://192.168.0.150:9200/'
+URL_KINOKINO = 'http://127.0.0.1:8000/'
 URL_USER = 'v1/user/'
 URL_START = 'v1/start/'
 URL_SEARCH_FILM = 'v1/search_film/'
@@ -62,7 +62,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         requests.get(URL_KINOKINO)
     except requests.ConnectionError:
-        await update.message.reply_text('Включи сервер, лошара')
+        await update.message.reply_text('Сервер выключен')
     json = {
         'username': f'{user.id}',
         'password': f'{user.id}',
